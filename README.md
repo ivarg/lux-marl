@@ -11,8 +11,13 @@ One problem with the competition environment (`LuxAIS3GymEnv`) is that each agen
 To use the `LuxAIMARLEnv`, you need to first clone [Lux-S3-Design](https://github.com/Lux-AI-Challenge/Lux-Design-S3/)
 
 ```
-$ git clone https://github.com/Lux-AI-Challenge/Lux-Design-S3 
-$ git clone https://github.com/ivarg/lux-marl
-$ cd lux-marl
-lux-marl $ uv sync
+git clone https://github.com/Lux-AI-Challenge/Lux-Design-S3 
+git clone https://github.com/ivarg/lux-marl
+cd lux-marl
+uv venv -p 3.11
+uv sync
+source .venv/bin/activate
 ```
+
+Then clone the [marl-book](https://github.com/ivarg/marl-book/tree/uv) repo
+
