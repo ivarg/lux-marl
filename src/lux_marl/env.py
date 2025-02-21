@@ -5,7 +5,7 @@ import numpy as np
 from gymnasium.spaces import Box, Dict, Discrete, flatdim
 from luxai_s3.wrappers import LuxAIS3GymEnv
 
-from .observation import ObsTransform
+from .obs import ObsTransform
 
 # NOTE: should env_params be passed to the model?
 
