@@ -5,7 +5,7 @@ import numpy as np
 from gymnasium.spaces import Box, Dict, Discrete, flatdim
 from luxai_s3.wrappers import LuxAIS3GymEnv
 
-from .obs import ObsTransform
+from .obs import TransformLuxObs
 
 # NOTE: should env_params be passed to the model?
 
@@ -30,34 +30,20 @@ class LuxAIMARLEnv(gym.Env):
     """
 
     def __init__(self, **kwargs) -> None:
-        self.lux_env = LuxAIS3GymEnv(numpy_output=True)
+        self.env = LuxAIS3GymEnv(numpy_output=True)
+        self.env = TransformLuxObs(self.env)
+        self.observation_space = self.env.observation_space
 
-        self.env_params = self.lux_env.env_params
-        self.n_agents = self.env_params.max_units
-
-        low = np.zeros(3)
-        low[1:] = -self.env_params.unit_sap_range
-        high = np.ones(3) * 6
-        high[1:] = self.env_params.unit_sap_range
-
+        env_params = self.env.unwrapped.env_params
+        self.n_agents = env_params.max_units
         self.action_space = gym.spaces.Tuple(
             tuple([gym.spaces.Discrete(5)] * self.n_agents)
         )
 
-        self.obs_transform = ObsTransform(self.env_params)
-        self.observation_space = self.obs_transform.observation_space()
-
-        # self.observation_space = gym.spaces.Tuple(
-        #     tuple([self._get_base_observation_space()] * self.n_agents)
-        # )
-
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[Any, dict[str, Any]]:
-        obs, info = self.lux_env.reset(seed=seed, options=options)
-
-        # transform the observation to marl space
-        obs = self.obs_transform.transform(obs)
+        obs, info = self.env.reset(seed=seed, options=options)
 
         return obs, dict()
 
@@ -73,15 +59,12 @@ class LuxAIMARLEnv(gym.Env):
             player_0=self._make_lux_action(action),
             player_1=self._make_lux_action(self._get_opponent_action()),
         )
-        obs, reward, terminated, truncated, info = self.lux_env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
 
+        # obs is now a 16-length tuple - one obs for each unit/agent
         # team_points has two elements, one score for each player
         # this is a common reward game, so all agents receive the same reward
-        reward = tuple([float(obs["player_0"]["team_points"][0])] * self.n_agents)
-
-        # transform the observation to marl space
-        obs = self.obs_transform.transform(obs)
-
+        reward = tuple([float(obs[0]["team_points"][0])] * self.n_agents)
         terminated = np.bool(terminated["player_0"][()])
         truncated = np.bool(truncated["player_0"][()])
         return obs, reward, terminated, truncated, dict()
