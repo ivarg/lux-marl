@@ -5,6 +5,8 @@ import numpy as np
 from gymnasium.spaces import Box, Dict, Discrete, flatdim
 from luxai_s3.wrappers import LuxAIS3GymEnv
 
+from .observation import ObsTransform
+
 # NOTE: should env_params be passed to the model?
 
 
@@ -42,15 +44,20 @@ class LuxAIMARLEnv(gym.Env):
             tuple([gym.spaces.Discrete(5)] * self.n_agents)
         )
 
-        self.observation_space = gym.spaces.Tuple(
-            tuple([self._get_base_observation_space()] * self.n_agents)
-        )
+        self.obs_transform = ObsTransform(self.env_params)
+        self.observation_space = self.obs_transform.observation_space()
+
+        # self.observation_space = gym.spaces.Tuple(
+        #     tuple([self._get_base_observation_space()] * self.n_agents)
+        # )
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[Any, dict[str, Any]]:
         obs, info = self.lux_env.reset(seed=seed, options=options)
-        obs = self._get_obs(obs)
+
+        # transform the observation to marl space
+        obs = self.obs_transform.transform(obs)
 
         return obs, dict()
 
@@ -71,7 +78,9 @@ class LuxAIMARLEnv(gym.Env):
         # team_points has two elements, one score for each player
         # this is a common reward game, so all agents receive the same reward
         reward = tuple([float(obs["player_0"]["team_points"][0])] * self.n_agents)
-        obs = self._get_obs(obs)
+
+        # transform the observation to marl space
+        obs = self.obs_transform.transform(obs)
 
         terminated = np.bool(terminated["player_0"][()])
         truncated = np.bool(truncated["player_0"][()])
@@ -81,96 +90,6 @@ class LuxAIMARLEnv(gym.Env):
         aa = np.ones((16, 3), dtype=np.int32) * -1
         aa[:, 0] = action
         return aa
-
-    def _get_obs(self, obs):
-        obs = obs["player_0"]
-        obs["steps"] = np.int64(obs["steps"][()])
-        obs["match_steps"] = np.int64(obs["match_steps"][()])
-        obs = tuple([obs] * self.n_agents)
-        return obs
-
-    def _get_base_observation_space(self):
-        num_teams = self.env_params.num_teams
-        map_size = self.env_params.map_width
-        max_units = self.env_params.max_units
-        max_unit_energy = self.env_params.max_unit_energy
-        max_energy_per_tile = self.env_params.max_energy_per_tile
-        min_energy_per_tile = self.env_params.min_energy_per_tile
-        max_steps_in_match = self.env_params.max_steps_in_match
-        match_count_per_episode = self.env_params.match_count_per_episode
-        max_relic_nodes = self.env_params.max_relic_nodes
-
-        obs = Dict(
-            {
-                "units": Dict(
-                    {
-                        "position": Box(
-                            low=-1,
-                            high=map_size - 1,
-                            shape=(num_teams, max_units, 2),
-                            dtype=np.int16,
-                        ),
-                        "energy": Box(
-                            low=-1,
-                            high=max_unit_energy,
-                            shape=(2, max_units),
-                            dtype=np.int16,
-                        ),
-                    }
-                ),
-                "units_mask": Box(
-                    low=0, high=1, shape=(num_teams, max_units), dtype=np.bool
-                ),
-                "sensor_mask": Box(
-                    low=0,
-                    high=1,
-                    shape=(map_size, map_size),
-                    dtype=np.bool,
-                ),
-                "map_features": Dict(
-                    {
-                        "energy": Box(
-                            low=min_energy_per_tile,
-                            high=max_energy_per_tile,
-                            shape=(map_size, map_size),
-                            dtype=np.int16,
-                        ),
-                        "tile_type": Box(
-                            low=-1,
-                            high=2,
-                            shape=(map_size, map_size),
-                            dtype=np.int32,
-                        ),
-                    }
-                ),
-                "relic_nodes": Box(
-                    low=-1,
-                    high=map_size - 1,
-                    shape=(max_relic_nodes, 2),
-                    dtype=np.int16,
-                ),
-                "relic_nodes_mask": Box(
-                    low=0, high=1, shape=(max_relic_nodes,), dtype=np.bool
-                ),
-                "team_points": Box(
-                    low=0,
-                    high=np.iinfo(np.int32).max,
-                    shape=(num_teams,),
-                    dtype=np.int32,
-                ),
-                "team_wins": Box(
-                    low=0,
-                    high=match_count_per_episode,
-                    shape=(num_teams,),
-                    dtype=np.int32,
-                ),
-                "steps": Discrete((max_steps_in_match + 1) * match_count_per_episode),
-                "match_steps": Discrete(max_steps_in_match + 1),
-            }
-        )
-        print(f"luxais3 obss shape: {flatdim(obs)}")
-        # print(f"luxais3 obss shape: {obs.shape}")
-        return obs
 
     def _get_opponent_action(self) -> Any:
         return np.asarray(self.action_space.sample())
