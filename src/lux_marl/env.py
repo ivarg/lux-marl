@@ -10,6 +10,14 @@ from .obs import TransformLuxObs
 # NOTE: should env_params be passed to the model?
 
 
+class LuxOpponent:
+    def __init__(self, action_space: gym.Space):
+        self.action_space = action_space
+
+    def get_action(self, obs: dict) -> Any:
+        return np.asarray(self.action_space.sample())
+
+
 #
 class LuxAIMARLEnv(gym.Env):
     """
@@ -40,10 +48,13 @@ class LuxAIMARLEnv(gym.Env):
             tuple([gym.spaces.Discrete(5)] * self.n_agents)
         )
 
+        self.opponent = LuxOpponent(self.action_space)
+
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[Any, dict[str, Any]]:
         obs, info = self.env.reset(seed=seed, options=options)
+        self.last_obs = obs
 
         return obs, dict()
 
@@ -57,9 +68,11 @@ class LuxAIMARLEnv(gym.Env):
         """
         action = dict(
             player_0=self._make_lux_action(action),
-            player_1=self._make_lux_action(self._get_opponent_action()),
+            player_1=self._make_lux_action(self.opponent.get_action(self.last_obs)),
         )
         obs, reward, terminated, truncated, info = self.env.step(action)
+        # TODO: use `info` for last observation?
+        self.last_obs = obs
 
         # obs is now a 16-length tuple - one obs for each unit/agent
         # team_points has two elements, one score for each player
