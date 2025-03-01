@@ -54,6 +54,7 @@ class LuxAIMARLEnv(gym.Env):
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[Any, dict[str, Any]]:
         obs, info = self.env.reset(seed=seed, options=options)
+        self.team_points = np.zeros(2, dtype=np.int32)
         self.last_obs = obs
 
         return obs, dict()
@@ -77,10 +78,17 @@ class LuxAIMARLEnv(gym.Env):
         # obs is now a 16-length tuple - one obs for each unit/agent
         # team_points has two elements, one score for each player
         # this is a common reward game, so all agents receive the same reward
-        reward = tuple([float(obs[0]["team_points"][0])] * self.n_agents)
+        # reward = tuple([float(obs[0]["team_points"][0])] * self.n_agents)
+        reward = tuple([self._get_reward(obs[0]["team_points"])] * self.n_agents)
         terminated = np.bool(terminated["player_0"][()])
         truncated = np.bool(truncated["player_0"][()])
         return obs, reward, terminated, truncated, dict()
+
+    def _get_reward(self, team_points: np.array) -> float:
+        points = float(team_points[0])
+        reward = points - float(self.team_points[0])
+        self.team_points = team_points
+        return reward
 
     def _make_lux_action(self, action: np.array) -> np.array:
         aa = np.ones((16, 3), dtype=np.int32) * -1
