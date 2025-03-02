@@ -1,0 +1,2 @@
+_target_: lux_marl.loggers.Logger
+project_name: fastmarl

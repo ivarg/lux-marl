@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "hydra-core==1.3.2",
     "gymnasium==0.29.1",
     "luxai-s3",
 ]

@@ -1,13 +1,13 @@
 from typing import Any, SupportsFloat
 
 import gymnasium as gym
+
+# NOTE: should env_params be passed to the model?
 import numpy as np
 from gymnasium.spaces import Box, Dict, Discrete, flatdim
 from luxai_s3.wrappers import LuxAIS3GymEnv
 
 from .obs import TransformLuxObs
-
-# NOTE: should env_params be passed to the model?
 
 
 class LuxOpponent:
